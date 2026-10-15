@@ -2,6 +2,10 @@
 
 This is a FastAPI URL-shortening service. Users register and authenticate, create links, and request public redirects; admins can manage users and links. Redirects resolve through a Redis cache with PostgreSQL fallback, while clicks are buffered and flushed exactly once. The repository also documents Traefik ingress and a Prometheus/Grafana/Alertmanager stack. Some infrastructure and route implementations were not sampled.
 
+## Common Approach
+Short codes are generated using a cryptographically secure random alphanumeric algorithm, with database-enforced uniqueness and retries for collisions; users can also specify custom aliases.
+<hr/>
+
 [![Architecture diagram of shubhankarraj9/url-shortener-project](https://gitdiagram.com/shubhankarraj9/url-shortener-project/diagram.png)](https://gitdiagram.com/shubhankarraj9/url-shortener-project?utm_source=readme&utm_medium=picture)
 
 **Choose where to start:** [Local setup](#local-setup) · [Production](#production) · [API](#api) · [Operations](#operations)
