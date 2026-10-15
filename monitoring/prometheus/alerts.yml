@@ -1,0 +1,116 @@
+groups:
+  - name: availability
+    rules:
+      - alert: TargetDown
+        expr: up == 0
+        for: 2m
+        labels: {severity: critical}
+        annotations:
+          summary: "{{ $labels.job }} target {{ $labels.instance }} is down"
+
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "PostgreSQL is unreachable from its exporter"
+
+      - alert: RedisDown
+        expr: redis_up == 0
+        for: 1m
+        labels: {severity: critical}
+        annotations:
+          summary: "Redis is unreachable from its exporter"
+
+  - name: api
+    rules:
+      - alert: ApiHighErrorRate
+        expr: |
+          sum(rate(http_requests_total{job="api",status=~"5.."}[5m]))
+            / clamp_min(sum(rate(http_requests_total{job="api"}[5m])), 1e-9) > 0.05
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: "More than 5% of API requests are failing with 5xx"
+
+      - alert: ApiHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(http_request_duration_seconds_bucket{job="api"}[5m]))) > 1
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "API p95 latency above 1s for 10 minutes"
+
+      - alert: LoginFailureSpike
+        expr: sum(rate(shortener_logins_total{result=~"failure|locked"}[5m])) > 2
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "Sustained failed logins (possible credential stuffing)"
+
+      - alert: ClickFlushFailing
+        expr: increase(shortener_click_flush_failures_total[10m]) > 0
+        for: 1m
+        labels: {severity: warning}
+        annotations:
+          summary: "Click batches cannot be written to PostgreSQL; clicks are accumulating in Redis"
+
+      - alert: ClickBacklog
+        expr: max(shortener_clicks_pending) > 50000
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "Over 50k clicks are waiting in Redis; the flusher is not keeping up or is stuck"
+
+      - alert: RedisUnavailableClicksFallingBack
+        expr: increase(shortener_clicks_fallback_total[5m]) > 0
+        labels: {severity: warning}
+        annotations:
+          summary: "Redis is unavailable: clicks are being written directly to PostgreSQL (counts stay exact, load is higher)"
+
+      - alert: ClicksLost
+        expr: increase(shortener_clicks_lost_total[5m]) > 0
+        labels: {severity: critical}
+        annotations:
+          summary: "Clicks could be stored in neither Redis nor PostgreSQL (both unavailable)"
+
+      - alert: EmailDeliveryFailing
+        expr: increase(shortener_emails_total{result="failed"}[15m]) > 3
+        labels: {severity: warning}
+        annotations:
+          summary: "Verification / reset e-mails are failing to send"
+
+  - name: datastores
+    rules:
+      - alert: PostgresConnectionsHigh
+        expr: sum(pg_stat_activity_count) / max(pg_settings_max_connections) > 0.8
+        for: 5m
+        labels: {severity: warning}
+        annotations:
+          summary: "PostgreSQL is using more than 80% of max_connections"
+
+      - alert: RedisMemoryHigh
+        expr: redis_memory_max_bytes > 0 and redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 10m
+        labels: {severity: warning}
+        annotations:
+          summary: "Redis is above 90% of maxmemory"
+
+  - name: edge
+    rules:
+      - alert: TraefikHighErrorRate
+        expr: |
+          sum(rate(traefik_service_requests_total{code=~"5.."}[5m]))
+            / clamp_min(sum(rate(traefik_service_requests_total[5m])), 1e-9) > 0.05
+        for: 5m
+        labels: {severity: critical}
+        annotations:
+          summary: "More than 5% of proxied requests return 5xx"
+
+      - alert: TLSCertificateExpiringSoon
+        expr: (min(traefik_tls_certs_not_after) - time()) < 14 * 24 * 3600
+        for: 1h
+        labels: {severity: warning}
+        annotations:
+          summary: "A TLS certificate expires in under 14 days (is ACME renewal working?)"

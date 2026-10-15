@@ -1,0 +1,11 @@
+.git
+.env
+secrets
+tests
+**/__pycache__
+*.pyc
+.venv
+.pytest_cache
+monitoring
+traefik
+docs

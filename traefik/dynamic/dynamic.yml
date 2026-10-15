@@ -1,0 +1,45 @@
+# Traefik dynamic configuration (hot-reloaded). Host rules, routers and the IP allow-list
+# live in docker-compose.yml labels because they depend on your .env values.
+
+tls:
+  certificates:
+    - certFile: /etc/traefik/certs/localhost.pem
+      keyFile: /etc/traefik/certs/localhost-key.pem
+  options:
+    modern:
+      minVersion: VersionTLS12
+      cipherSuites:
+        - TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384
+        - TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256
+        - TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
+        - TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256
+        - TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
+
+http:
+  middlewares:
+    security-headers:
+      headers:
+        stsSeconds: 63072000
+        stsIncludeSubdomains: true
+        forceSTSHeader: true
+        contentTypeNosniff: true
+        frameDeny: true
+        referrerPolicy: "no-referrer"
+        permissionsPolicy: "camera=(), microphone=(), geolocation=()"
+        customResponseHeaders:
+          Server: ""
+          X-Powered-By: ""
+
+    compress:
+      compress: {}
+
+    # Rate limits (rl-global, rl-auth) and the admin IP allow-list are defined in docker-compose.yml labels
+    # because they take values from .env (RL_*, PROXY_DEPTH, ADMIN_IP_ALLOWLIST).
+
+    # Basic auth for Prometheus, Alertmanager, Traefik dashboard (file created by scripts/init-env.sh).
+    dash-auth:
+      basicAuth:
+        usersFile: /etc/traefik/htpasswd
+        realm: "Restricted"
+        removeHeader: true
